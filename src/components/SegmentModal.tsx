@@ -5,11 +5,12 @@ import {
   TextField,
   MenuItem,
   Typography,
-  IconButton,
   Stack,
   Paper,
+  IconButton,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
+import { saveSegment } from "../services/api";
 
 interface Props {
   onClose: () => void;
@@ -35,15 +36,27 @@ const SegmentModal: React.FC<Props> = ({ onClose }) => {
   const [selectedSchema, setSelectedSchema] = useState("");
   const [addedSchemas, setAddedSchemas] = useState<SchemaOption[]>([]);
 
+  // Filter options that haven't been added yet
   const availableOptions = schemaOptions.filter(
     (opt) => !addedSchemas.some((a) => a.value === opt.value)
   );
 
+  // Add new schema to the list
   const handleAddSchema = () => {
     const schema = schemaOptions.find((s) => s.value === selectedSchema);
     if (schema) {
       setAddedSchemas([...addedSchemas, schema]);
       setSelectedSchema("");
+    }
+  };
+
+  // Change schema in an existing dropdown
+  const handleSchemaChange = (index: number, value: string) => {
+    const newSchemas = [...addedSchemas];
+    const schema = schemaOptions.find((s) => s.value === value);
+    if (schema) {
+      newSchemas[index] = schema;
+      setAddedSchemas(newSchemas);
     }
   };
 
@@ -58,17 +71,13 @@ const SegmentModal: React.FC<Props> = ({ onClose }) => {
       schema: addedSchemas.map((s) => ({ [s.value]: s.label })),
     };
 
-    await fetch(
-      "http://localhost:8080/https://webhook.site/a4fc3bb4-99ef-4d24-be5d-e7cf36b22fb3",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      }
-    );
-
-    alert("Segment saved successfully!");
-    onClose();
+    try {
+      await saveSegment(data);
+      alert("Segment saved successfully!");
+      onClose();
+    } catch (error) {
+      alert("Failed to save segment. Please try again.");
+    }
   };
 
   return (
@@ -86,7 +95,7 @@ const SegmentModal: React.FC<Props> = ({ onClose }) => {
         p: 2,
       }}
     >
-      <Paper sx={{ p: 4, width: 400, borderRadius: 2 }} elevation={6}>
+      <Paper sx={{ p: 4, width: 450, borderRadius: 2 }} elevation={6}>
         <Typography variant="h6" mb={2}>
           Save Segment
         </Typography>
@@ -98,6 +107,7 @@ const SegmentModal: React.FC<Props> = ({ onClose }) => {
           onChange={(e) => setSegmentName(e.target.value)}
           variant="outlined"
           margin="normal"
+          sx={{marginBottom: '20px'}}
         />
 
         <Stack direction="row" spacing={1} alignItems="center" mb={2}>
@@ -121,7 +131,7 @@ const SegmentModal: React.FC<Props> = ({ onClose }) => {
             color="primary"
             onClick={handleAddSchema}
             disabled={!selectedSchema}
-            sx={{ mt: 1 }}
+            sx={{ mt: 1, border: '1px solid black' }}
           >
             <AddIcon />
           </IconButton>
@@ -133,11 +143,32 @@ const SegmentModal: React.FC<Props> = ({ onClose }) => {
             elevation={0}
           >
             <Stack spacing={1}>
-              {addedSchemas.map((schema) => (
-                <Typography key={schema.value} variant="body2">
-                  {schema.label}
-                </Typography>
-              ))}
+              {addedSchemas.map((schema, index) => {
+                const remainingOptions = schemaOptions.filter(
+                  (opt) =>
+                    !addedSchemas
+                      .filter((_, i) => i !== index)
+                      .some((a) => a.value === opt.value)
+                );
+                return (
+                  <TextField
+                    key={index}
+                    select
+                    size="small"
+                    fullWidth
+                    value={schema.value}
+                    onChange={(e) =>
+                      handleSchemaChange(index, e.target.value)
+                    }
+                  >
+                    {remainingOptions.map((opt) => (
+                      <MenuItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                );
+              })}
             </Stack>
           </Paper>
         )}
